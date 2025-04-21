@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
+
+# ✅ Import tokenizer BEFORE loading pickle files
 from tokenizer import custom_tokenizer
 
 app = Flask(__name__)
@@ -38,7 +40,7 @@ except FileNotFoundError as e:
     print(f"Error: {e}. Ensure model, encoders, and vectorizer files exist.")
     exit(1)
 except AttributeError as e:
-    print(f"Error loading pickled files: {e}. Ensure custom_tokenizer is defined correctly.")
+    print(f"Error loading pickled files: {e}. Ensure custom_tokenizer is defined in tokenizer.py.")
     exit(1)
 
 # Derive features and outputs from config or dataset
@@ -64,10 +66,7 @@ def error_response(message, status_code):
 
 @app.route('/info', methods=['GET'])
 def get_model_info():
-    """Return information about the model"""
-    # Check model readiness
     model_ready = all([model is not None, tfidf is not None, label_encoders is not None])
-    
     return jsonify({
         "model_name": config.get("model_name", "RespiratoryHealthModel"),
         "model_version": config.get("model_version", "1.0"),
@@ -78,42 +77,31 @@ def get_model_info():
 
 @app.route('/predict', methods=['POST'])
 def predict():
-    """Make predictions based on input features"""
     if not request.is_json:
         return error_response("Request must be JSON", 400)
     
     data = request.get_json()
-    
-    # Validate input features
     missing_features = [feat for feat in numeric_features + [text_feature] if feat not in data]
     if missing_features:
         return error_response(f"Missing features: {missing_features}", 400)
     
     try:
-        # Validate numeric features
         for feat in numeric_features:
             if not isinstance(data[feat], (int, float)) or data[feat] < 0:
                 return error_response(f"Invalid value for {feat}: must be a non-negative number", 400)
         
-        # Validate text feature
         if not isinstance(data[text_feature], str) or not data[text_feature].strip():
             return error_response(f"{text_feature} must be a non-empty string", 400)
         
-        # Extract numeric features
         numeric_data = [float(data[feat]) for feat in numeric_features]
         numeric_array = np.array([numeric_data])
         
-        # Extract and transform text feature using TF-IDF
         text_input = data[text_feature]
         text_features = tfidf.transform([text_input]).toarray()
         
-        # Combine numeric and text features
         X = np.hstack([numeric_array, text_features])
-        
-        # Make predictions
         predictions = model.predict(X)[0]
         
-        # Decode predictions
         result = {}
         for i, col in enumerate(output_columns):
             le = label_encoders.get(col)
@@ -122,21 +110,17 @@ def predict():
             predicted_label = le.inverse_transform([predictions[i]])[0]
             result[col] = predicted_label
         
-        # Add confidence scores
         probabilities = model.predict_proba(X)
         confidences = {}
         for i, col in enumerate(output_columns):
             prob = probabilities[i][0][predictions[i]]
             confidences[col] = round(float(prob * 100), 1)
         
-        # Format response
-        response = {
+        return jsonify({
             "predictions": result,
             "confidences": confidences,
             "status": "success"
-        }
-        
-        return jsonify(response)
+        })
     
     except ValueError as e:
         return error_response(f"Invalid input data: {str(e)}", 400)
@@ -144,7 +128,6 @@ def predict():
         return error_response(f"Server error: {str(e)}", 500)
 
 if __name__ == '__main__':
-    # Load server settings from environment variables
     HOST = os.getenv("FLASK_HOST", "0.0.0.0")
     PORT = int(os.getenv("FLASK_PORT", 5000))
     DEBUG = os.getenv("FLASK_DEBUG", "True").lower() == "true"
