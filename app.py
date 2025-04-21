@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pickle
 from sklearn.feature_extraction.text import TfidfVectorizer
+from tokenizer import custom_tokenizer
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": ["https://airespiratory.vercel.app"]}})
