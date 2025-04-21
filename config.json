@@ -1,0 +1,18 @@
+{
+  "model_path": "multi_output_model.pkl",
+  "encoders_path": "label_encoders.pkl",
+  "vectorizer_path": "tfidf_vectorizer.pkl",
+  "dataset_path": "respiratory_health_dataset.csv",
+  "numeric_features": ["Age", "SpO2", "Heart Rate (BPM)", "Blood Pressure (Systolic)"],
+  "text_feature": "Symptoms",
+  "output_columns": [
+      "What type of disease",
+      "Which doctor to consult",
+      "What medicines we have to take",
+      "What foods we have to take",
+      "What foods we have to avoid",
+      "What treatment we have to undergo"
+  ],
+  "model_name": "RespiratoryHealthModel",
+  "model_version": "1.0"
+}
